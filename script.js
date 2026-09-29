@@ -27,7 +27,9 @@
   ];
   const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby4MqBmuMY-1wmFcY3eeasnhW7XbvSHf8BptP6g1JoFnF8n5Hn4f5KYjC8_sA699bZwIQ/exec";
   const WINDOW_LABELS = { morning: "Morning (8am–11am)", midday: "Midday (11am–2pm)", afternoon: "Afternoon (2pm–5pm)" };
-  const RECAPTCHA_SITE_KEY = "RECAPTCHA_SITE_KEY"; // replace with your real site key from google.com/recaptcha/admin
+  // reCAPTCHA v3 site key (public) from google.com/recaptcha/admin — the only place it needs to be set.
+  // Leave as "" to disable reCAPTCHA; the secret key goes in the Apps Script, never here.
+  const RECAPTCHA_SITE_KEY = "";
 
   const state = {
     serviceType: "moving",
@@ -93,9 +95,17 @@
 
   // ---- booking form ----
 
+  function loadRecaptcha() {
+    if (!RECAPTCHA_SITE_KEY) return;
+    const script = document.createElement("script");
+    script.src = "https://www.google.com/recaptcha/api.js?render=" + encodeURIComponent(RECAPTCHA_SITE_KEY);
+    script.async = true;
+    document.head.appendChild(script);
+  }
+
   function getRecaptchaToken(action) {
     return new Promise((resolve) => {
-      if (typeof grecaptcha === "undefined" || RECAPTCHA_SITE_KEY === "RECAPTCHA_SITE_KEY") {
+      if (!RECAPTCHA_SITE_KEY || typeof grecaptcha === "undefined") {
         resolve(null); // site key not configured yet, or the script was blocked (ad blockers, offline) — don't hold up the form
         return;
       }
@@ -251,6 +261,7 @@
 
   document.addEventListener("DOMContentLoaded", () => {
     renderSizeOptions();
+    loadRecaptcha();
 
     $("quote-type-moving").addEventListener("click", () => setServiceType("moving"));
     $("quote-type-junk").addEventListener("click", () => setServiceType("junk"));
