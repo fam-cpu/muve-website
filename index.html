@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MUVE — Moving, Delivery &amp; Junk Removal</title>
+<link rel="stylesheet" href="styles.css">
+<!-- reCAPTCHA v3: replace RECAPTCHA_SITE_KEY (here and in script.js) with your real site key from google.com/recaptcha/admin -->
+<script src="https://www.google.com/recaptcha/api.js?render=RECAPTCHA_SITE_KEY"></script>
+</head>
+<body>
+
+<!-- ================= MAIN SITE ================= -->
+<div id="site-view">
+
+  <header class="site-header">
+    <div class="wrap">
+      <div>
+        <img class="brand-logo" src="assets/muve-logo.png" alt="MUVE logo">
+        <div class="brand-tagline">Moving &middot; Delivery &middot; Junk Removal</div>
+      </div>
+      <nav class="site-nav">
+        <a href="#services">Services</a>
+        <a href="#quote">Quote</a>
+        <a href="#gallery">Gallery</a>
+        <a href="#book">Book a Job</a>
+        <a id="nav-faq">FAQ</a>
+      </nav>
+      <a href="#quote" class="btn btn--primary btn--sm">Get a Quote</a>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero__overlay"></div>
+    <div class="wrap hero__inner">
+      <div>
+        <div class="hero__badge">Local &middot; Licensed &middot; Same-Week Slots</div>
+        <h1 class="hero__title">Moving boxes or hauling junk — know the price before we show up.</h1>
+        <p class="hero__subtitle">MUVE runs moving jobs and junk &amp; trash removal out of one truck fleet. Punch in your ZIP and how much you've got, and get a real price range in seconds — no walk-through required to get started.</p>
+        <div class="hero__stats">
+          <div class="stat">
+            <div class="stat__value">2 crews</div>
+            <div class="stat__label">dispatched daily across the service area</div>
+          </div>
+          <div class="stat">
+            <div class="stat__value">Same-week</div>
+            <div class="stat__label">booking on most requests</div>
+          </div>
+          <div class="stat">
+            <div class="stat__value">No hidden fees</div>
+            <div class="stat__label">quoted price is the ballpark you pay</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="quote" class="quote-card">
+        <div class="quote-card__tag">Instant Quote</div>
+        <h3 class="quote-card__title">What's the job?</h3>
+        <p class="quote-card__subtitle">Pick a service, drop in your ZIP and size — we'll estimate it live.</p>
+
+        <div class="service-toggle">
+          <button type="button" id="quote-type-moving" class="service-toggle__btn active">Moving</button>
+          <button type="button" id="quote-type-junk" class="service-toggle__btn">Junk &amp; Trash</button>
+        </div>
+
+        <div class="field">
+          <label for="quote-zip">ZIP code</label>
+          <input type="text" id="quote-zip" inputmode="numeric" maxlength="5" placeholder="e.g. 92101">
+        </div>
+
+        <div class="field">
+          <label id="quote-size-label" for="quote-size">Home size</label>
+          <select id="quote-size"></select>
+        </div>
+
+        <button type="button" id="calculate-quote-btn" class="btn btn--navy btn--full">Calculate my quote</button>
+
+        <div id="quote-result" class="quote-result hidden">
+          <div id="quote-result-range" class="quote-result__range"></div>
+          <p id="quote-result-detail" class="quote-result__detail"></p>
+          <a href="#book" class="quote-result__cta">Book this job &rarr;</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="services" class="section">
+    <div class="wrap">
+      <div class="section__intro">
+        <div class="section__eyebrow">What We Do</div>
+        <h2 class="section__heading">Two trucks, one call.</h2>
+      </div>
+      <div class="services-grid">
+        <div class="service-card">
+          <span class="service-card__badge">Moving</span>
+          <h3 class="service-card__title">Full-service moving</h3>
+          <p>Local moves, apartment-to-apartment or house-to-house. We wrap, load, drive, and carry it all back in.</p>
+          <ul>
+            <li>Studio through 4+ bedroom homes</li>
+            <li>Furniture blankets &amp; basic disassembly included</li>
+            <li>Stairs and long carries priced up front, not after</li>
+          </ul>
+          <div class="service-card__price">Starting around $380 for a studio load</div>
+        </div>
+        <div class="service-card">
+          <span class="service-card__badge">Junk &amp; Trash Removal</span>
+          <h3 class="service-card__title">Junk &amp; trash haul-away</h3>
+          <p>Old furniture, appliances, yard waste, garage clean-outs — priced by how much truck space it takes, not by the hour.</p>
+          <ul>
+            <li>Single item pickups to full-truck clean-outs</li>
+            <li>We do the lifting — point and it's gone</li>
+            <li>Responsible disposal &amp; donation drop-off where possible</li>
+          </ul>
+          <div class="service-card__price">Starting around $80 for a single item</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--muted">
+    <div class="wrap">
+      <div class="section__intro section__intro--wide">
+        <div class="section__eyebrow">How It Works</div>
+        <h2 class="section__heading">Three steps, no walk-through needed to start.</h2>
+      </div>
+      <div class="steps-grid">
+        <div class="step">
+          <div class="step__number">1</div>
+          <h4 class="step__title">Get your instant quote</h4>
+          <p>Use the calculator up top — ZIP code plus size gets you a real price range in seconds.</p>
+        </div>
+        <div class="step">
+          <div class="step__number">2</div>
+          <h4 class="step__title">Pick a date that works</h4>
+          <p>Book straight from the quote, or scroll down and fill in your preferred date and time window.</p>
+        </div>
+        <div class="step">
+          <div class="step__number">3</div>
+          <h4 class="step__title">We show up and handle it</h4>
+          <p>Crew arrives in the window you picked. Final price is confirmed on-site before anything gets loaded.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="gallery" class="section">
+    <div class="wrap">
+      <div class="section__intro">
+        <div class="section__eyebrow">Our Work</div>
+        <h2 class="section__heading">Recent moves &amp; junk hauls.</h2>
+        <p class="section__sub">Real jobs from around San Diego County — drop in photos as we complete them.</p>
+      </div>
+      <div class="gallery-grid">
+        <div class="gallery-slot">Job photo</div>
+        <div class="gallery-slot">Job photo</div>
+        <div class="gallery-slot">Job photo</div>
+        <div class="gallery-slot">Job photo</div>
+        <div class="gallery-slot">Job photo</div>
+        <div class="gallery-slot">Job photo</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="book" class="section">
+    <div class="wrap">
+      <div class="section__intro">
+        <div class="section__eyebrow">Book A Job</div>
+        <h2 class="section__heading">Lock in your date.</h2>
+      </div>
+      <div class="book-grid">
+        <div class="book-info">
+          <h3>What happens after you submit</h3>
+          <p>Your request lands directly in our dispatch inbox and calendar — you'll get a confirmation number right away, and we'll follow up to firm up the exact time window if needed.</p>
+          <p>Have photos of the items or a room you'd like moved? Just mention it in the notes — we'll ask you to send them over by email.</p>
+          <div class="book-info__contact">
+            Prefer to talk it through? Call <strong class="text-primary">(844) 867-0674</strong> or email <strong class="text-primary">fam@muvepro.com</strong>.
+          </div>
+        </div>
+
+        <form id="booking-form" novalidate>
+          <div class="form-row form-row--stacked">
+            <div class="field field--tight">
+              <label for="b-name">Full name</label>
+              <input type="text" id="b-name" maxlength="100" required>
+            </div>
+            <div class="field field--tight">
+              <label for="b-phone">Phone</label>
+              <input type="tel" id="b-phone" maxlength="30" required>
+            </div>
+          </div>
+          <div class="form-row form-row--stacked">
+            <div class="field field--tight">
+              <label for="b-email">Email</label>
+              <input type="email" id="b-email" maxlength="200" required>
+            </div>
+            <div class="field field--tight">
+              <label for="b-zip">ZIP code</label>
+              <input type="text" id="b-zip" maxlength="5" required>
+            </div>
+          </div>
+          <div class="field">
+            <label for="b-address">Service address</label>
+            <input type="text" id="b-address" placeholder="Street, city" maxlength="200" required>
+          </div>
+          <div class="form-row form-row--stacked">
+            <div class="field field--tight">
+              <label for="b-service">Service</label>
+              <select id="b-service">
+                <option value="moving">Moving</option>
+                <option value="junk">Junk &amp; Trash Removal</option>
+              </select>
+            </div>
+            <div class="field field--tight">
+              <label for="b-date">Preferred date</label>
+              <input type="date" id="b-date" required>
+            </div>
+          </div>
+          <div class="field">
+            <label for="b-window">Preferred time window</label>
+            <select id="b-window">
+              <option value="morning">Morning (8am&ndash;11am)</option>
+              <option value="midday">Midday (11am&ndash;2pm)</option>
+              <option value="afternoon">Afternoon (2pm&ndash;5pm)</option>
+            </select>
+          </div>
+          <div class="field field--wide">
+            <label for="b-notes">Job details / notes</label>
+            <textarea id="b-notes" placeholder="What's being moved or hauled? Stairs? Estimated size?" maxlength="2000"></textarea>
+          </div>
+          <button type="submit" class="btn btn--primary">Request this booking</button>
+          <p class="recaptcha-disclosure">This site is protected by reCAPTCHA and the Google
+            <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and
+            <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a> apply.</p>
+          <div id="booking-error" class="form-error hidden"></div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <div class="footer-grid">
+        <div>
+          <img class="brand-logo" src="assets/muve-logo.png" alt="MUVE logo">
+          <p class="footer-tagline">MOVING. DELIVERY. JUNK REMOVAL.</p>
+          <p class="footer-desc">Moving &amp; junk removal, run out of one dispatch board so nothing falls through the cracks.</p>
+        </div>
+        <div>
+          <h5 class="footer-heading">Service Area</h5>
+          <p class="footer-text">San Diego County core ZIPs, with outlying areas quoted at a standard travel rate.</p>
+        </div>
+        <div>
+          <h5 class="footer-heading">Contact</h5>
+          <p class="footer-text">(844) 867-0674<br>fam@muvepro.com<br>Mon&ndash;Sun, 7am&ndash;6pm</p>
+        </div>
+      </div>
+      <div class="footer-bottom">&copy; 2026 MUVE Moving &amp; Junk Removal.</div>
+    </div>
+  </footer>
+
+  <div class="chat-widget">
+    <div id="chat-panel" class="chat-panel hidden">
+      <div class="chat-panel__header">
+        <span>MUVE Help</span>
+        <button id="chat-close" class="chat-panel__close">&#10005;</button>
+      </div>
+      <div id="chat-messages" class="chat-panel__messages"></div>
+      <div id="chat-quick" class="chat-quick"></div>
+      <div class="chat-panel__input-row">
+        <input type="text" id="chat-input" placeholder="Ask a question...">
+        <button id="chat-send" class="chat-send">Send</button>
+      </div>
+    </div>
+    <button id="chat-toggle" class="chat-toggle">
+      <span class="chat-toggle__dot"></span>Questions?
+    </button>
+  </div>
+
+</div>
+
+<!-- ================= CONFIRMATION SCREEN ================= -->
+<div id="confirmation-view" class="confirmation-page hidden">
+  <header class="confirmation-header">
+    <div>
+      <img class="brand-logo" src="assets/muve-logo.png" alt="MUVE logo">
+      <div class="brand-tagline brand-tagline--plain">MOVING. DELIVERY. JUNK REMOVAL.</div>
+    </div>
+  </header>
+
+  <div class="confirmation-body">
+    <div class="confirmation-body__inner">
+      <div class="confirmation-intro">
+        <div class="confirmation-check"><span>&#10003;</span></div>
+        <h1 class="confirmation-title">Booking Confirmed</h1>
+        <p class="confirmation-subtitle">Thanks, <span id="conf-name"></span> — we've got your job on the books.</p>
+      </div>
+
+      <div class="confirmation-card">
+        <div class="confirmation-card__head">
+          <span class="confirmation-card__head-label">Confirmation Number</span>
+          <span id="conf-number" class="confirmation-card__number"></span>
+        </div>
+
+        <div class="confirmation-grid">
+          <div>
+            <div class="confirmation-grid__label">Service</div>
+            <div id="conf-service" class="confirmation-grid__value"></div>
+          </div>
+          <div>
+            <div class="confirmation-grid__label">Date</div>
+            <div id="conf-date" class="confirmation-grid__value"></div>
+          </div>
+          <div>
+            <div class="confirmation-grid__label">Time Window</div>
+            <div id="conf-window" class="confirmation-grid__value"></div>
+          </div>
+          <div>
+            <div class="confirmation-grid__label">Estimated Price</div>
+            <div id="conf-price" class="confirmation-grid__value"></div>
+          </div>
+        </div>
+
+        <div class="confirmation-address">
+          <div class="confirmation-grid__label">Service Address</div>
+          <div id="conf-address" class="confirmation-address__value"></div>
+          <div id="conf-notes-wrap" class="hidden">
+            <div class="confirmation-grid__label">Job Notes</div>
+            <div id="conf-notes" class="text-body-color"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="confirmation-next">
+        <h3>What happens next</h3>
+        <div class="confirmation-next__list">
+          <div>1. You'll get a confirmation email shortly at <span id="conf-email"></span>.</div>
+          <div>2. Our dispatcher will call <span id="conf-phone"></span> if we need to firm up your time window.</div>
+          <div>3. Crew arrives in your <span id="conf-window-2"></span> window on <span id="conf-date-2"></span> — final price confirmed on-site before anything moves.</div>
+        </div>
+      </div>
+
+      <div class="confirmation-footer-text">
+        <p>Need to change something? Call <strong class="text-primary">(844) 867-0674</strong> or email <strong class="text-primary">fam@muvepro.com</strong>.</p>
+        <button id="back-to-site" class="btn btn--outline">&larr; Back to site</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
