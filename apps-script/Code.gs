@@ -17,6 +17,11 @@
  *      Pending requests and confirmed bookings both hold their slot; a full slot
  *      is hidden on the website, rejected on submit, and blocked on confirm.
  *      To free a confirmed slot, set that row's Status to "Cancelled".
+ *   5. Reviews: set a booking's Status to "Completed" and, within the hour, the
+ *      customer gets a "How did we do?" email. Their star rating + comments are
+ *      emailed to the business and saved in the month's "Reviews" tab, and every
+ *      customer is invited to post on Google too (no filtering by rating — Google
+ *      doesn't allow "review gating").
  *
  * Setup — see apps-script/SETUP.md.
  */
@@ -28,20 +33,26 @@ const CONFIG = {
   FOLDER_NAME: 'MUVE Bookings',
   TIMEZONE: 'America/Los_Angeles',
   PENDING_DAYS: 60, // unanswered requests are cleared after this many days
-  JOBS_PER_SLOT: 1   // max bookings per date + time window (raise to 2 if both crews can take the same window)
+  JOBS_PER_SLOT: 1,  // max bookings per date + time window (raise to 2 if both crews can take the same window)
+  // Your Google review link: Google Business Profile → "Ask for reviews" / "Get more reviews" → copy the link
+  // (looks like https://g.page/r/XXXXXXXX/review). Leave '' to hide the Google buttons.
+  GOOGLE_REVIEW_URL: ''
 };
 
 const HEADERS = [
   'Confirmation #', 'Status', 'Confirmed at', 'Job date', 'Time window', 'Service', 'Size',
   'Estimate', 'Name', 'Phone', 'Email', 'Pickup address', 'Pickup ZIP', 'Drop-off ZIP',
-  'Notes', 'Submitted at'
+  'Notes', 'Submitted at', 'Review email sent'
 ];
+const STATUS_OPTIONS = ['Confirmed', 'Completed', 'Cancelled'];
+const REVIEW_HEADERS = ['Submitted at', 'Confirmation #', 'Stars', 'Comments', 'Name', 'Email', 'Service', 'Job date'];
+const COL = { conf: 1, status: 2, date: 4, window: 5, service: 6, size: 7, name: 9, email: 11, reviewSent: 17 };
 const SERVICE_LABELS = { moving: 'Moving', delivery: 'Delivery', junk: 'Junk & Trash Removal' };
 const WINDOW_LABELS = { morning: 'Morning (8am–11am)', midday: 'Midday (11am–2pm)', afternoon: 'Afternoon (2pm–5pm)' };
 
 // ================= website → new booking request =================
 
-const SCRIPT_VERSION = 'muve-bookings-2';
+const SCRIPT_VERSION = 'muve-bookings-3';
 
 function doPost(e) {
   try {
@@ -92,6 +103,8 @@ function doGet(e) {
       return json_({ ok: false, version: SCRIPT_VERSION, reason: 'server', message: String(err && err.message || err).slice(0, 200) });
     }
   }
+
+  if (e && e.parameter && e.parameter.action === 'review') return reviewPage_(e.parameter);
 
   const id = String((e && e.parameter && e.parameter.id) || '');
   const token = String((e && e.parameter && e.parameter.t) || '');
@@ -205,8 +218,20 @@ function getMonthSpreadsheet_(date, noCreate) {
     sh.setFrozenRows(1);
     sh.autoResizeColumns(1, HEADERS.length);
   }
+  ensureSheetFormat_(ss);
   props.setProperty(key, ss.getId());
   return ss;
+}
+
+/** Adds the Status dropdown and the "Review email sent" column (also upgrades older monthly sheets). */
+function ensureSheetFormat_(ss) {
+  const sh = ss.getSheetByName('Bookings') || ss.getSheets()[0];
+  if (String(sh.getRange(1, COL.reviewSent).getValue()) !== HEADERS[COL.reviewSent - 1]) {
+    sh.getRange(1, COL.reviewSent).setValue(HEADERS[COL.reviewSent - 1])
+      .setFontWeight('bold').setBackground('#F28C38').setFontColor('#102540');
+  }
+  const rule = SpreadsheetApp.newDataValidation().requireValueInList(STATUS_OPTIONS, true).setAllowInvalid(false).build();
+  sh.getRange(2, COL.status, Math.max(sh.getMaxRows() - 1, 1), 1).setDataValidation(rule);
 }
 
 function appendBooking_(ss, b) {
@@ -314,6 +339,223 @@ function findDuplicatePending_(b) {
     } catch (err) { /* ignore */ }
   }
   return null;
+}
+
+// ================= reviews =================
+
+/** Runs hourly (installed by setup): emails a review request for every booking marked "Completed". */
+function sendReviewRequests() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(1000)) return;
+  try {
+    allMonthSpreadsheets_().forEach(function (ss) {
+      const sh = ss.getSheetByName('Bookings') || ss.getSheets()[0];
+      const last = sh.getLastRow();
+      if (last < 2) return;
+      const rows = sh.getRange(2, 1, last - 1, COL.reviewSent).getValues();
+      rows.forEach(function (r, i) {
+        if (String(r[COL.status - 1]).trim().toLowerCase() !== 'completed') return;
+        if (String(r[COL.reviewSent - 1]).trim()) return;
+        const b = bookingFromRow_(r);
+        if (!/^MUVE-\d{6}$/.test(b.confNumber) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(b.email)) return;
+        sendReviewRequest_(b);
+        sh.getRange(i + 2, COL.reviewSent).setValue(Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'yyyy-MM-dd HH:mm'));
+      });
+    });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function bookingFromRow_(r) {
+  const d = r[COL.date - 1];
+  return {
+    confNumber: String(r[COL.conf - 1]).trim(),
+    date: d instanceof Date ? Utilities.formatDate(d, CONFIG.TIMEZONE, 'yyyy-MM-dd') : String(d).trim(),
+    windowLabel: String(r[COL.window - 1]),
+    serviceLabel: String(r[COL.service - 1]),
+    size: String(r[COL.size - 1]),
+    name: String(r[COL.name - 1]),
+    email: String(r[COL.email - 1]).trim()
+  };
+}
+
+/** Every monthly spreadsheet this script has created. */
+function allMonthSpreadsheets_() {
+  const props = PropertiesService.getScriptProperties().getProperties();
+  const out = [];
+  Object.keys(props).sort().forEach(function (k) {
+    if (k.indexOf('sheet:') !== 0) return;
+    try {
+      if (!DriveApp.getFileById(props[k]).isTrashed()) out.push(SpreadsheetApp.openById(props[k]));
+    } catch (err) { /* deleted */ }
+  });
+  return out;
+}
+
+function findBooking_(id) {
+  const sheets = allMonthSpreadsheets_();
+  for (let s = 0; s < sheets.length; s++) {
+    const sh = sheets[s].getSheetByName('Bookings') || sheets[s].getSheets()[0];
+    if (sh.getLastRow() < 2) continue;
+    const rows = sh.getRange(2, 1, sh.getLastRow() - 1, COL.reviewSent).getValues();
+    for (let i = 0; i < rows.length; i++) {
+      if (String(rows[i][COL.conf - 1]).trim() === id) return { ss: sheets[s], b: bookingFromRow_(rows[i]) };
+    }
+  }
+  return null;
+}
+
+function serviceNoun_(label) {
+  const l = String(label).toLowerCase();
+  if (l.indexOf('moving') === 0) return 'move';
+  if (l.indexOf('junk') === 0) return 'junk removal';
+  if (l.indexOf('delivery') === 0) return 'delivery';
+  return 'service';
+}
+
+function reviewToken_(id) {
+  return token_('review:' + id);
+}
+
+function validReviewToken_(id, token) {
+  if (!/^MUVE-\d{6}$/.test(id) || !token) return false;
+  const expected = reviewToken_(id);
+  if (expected.length !== token.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ token.charCodeAt(i);
+  return diff === 0;
+}
+
+function reviewLink_(id, stars) {
+  return ScriptApp.getService().getUrl() + '?action=review&id=' + encodeURIComponent(id) + '&t=' + reviewToken_(id) + (stars ? '&stars=' + stars : '');
+}
+
+function googleButton_() {
+  if (!CONFIG.GOOGLE_REVIEW_URL) return '';
+  return `<p style="margin-top:18px"><a class="btn" href="${esc_(CONFIG.GOOGLE_REVIEW_URL)}" target="_blank" rel="noopener">⭐ Leave a Google review</a></p>`;
+}
+
+function sendReviewRequest_(b) {
+  const stars = [1, 2, 3, 4, 5].map(function (n) {
+    return `<a href="${reviewLink_(b.confNumber, n)}" style="text-decoration:none;font-size:34px;color:#F28C38;padding:0 3px" title="${n} star${n > 1 ? 's' : ''}">★</a>`;
+  }).join('');
+  MailApp.sendEmail({
+    to: b.email,
+    replyTo: CONFIG.BUSINESS_EMAIL,
+    name: CONFIG.BUSINESS_NAME,
+    subject: `How did we do, ${firstName_(b.name)}? — MUVE ${b.confNumber}`,
+    htmlBody: emailShell_(`
+      <p>Hi ${esc_(firstName_(b.name))},</p>
+      <p>Thanks for choosing MUVE for your ${esc_(serviceNoun_(b.serviceLabel))}! We'd love to hear how it went.</p>
+      <p><strong>Tap a star to rate us:</strong></p>
+      <p style="margin:6px 0 4px">${stars}</p>
+      <p class="muted">It takes 30 seconds and goes straight to the owner.</p>
+      ${CONFIG.GOOGLE_REVIEW_URL ? `<p>Have a moment more? A Google review helps other San Diego families find us:</p>${googleButton_()}` : ''}`),
+    body: `Hi ${firstName_(b.name)},\n\nThanks for choosing MUVE! How did we do? Rate us here: ${reviewLink_(b.confNumber)}` +
+      (CONFIG.GOOGLE_REVIEW_URL ? `\n\nLeave a Google review: ${CONFIG.GOOGLE_REVIEW_URL}` : '')
+  });
+}
+
+function reviewPage_(p) {
+  const id = String(p.id || ''), token = String(p.t || '');
+  if (!validReviewToken_(id, token)) return page_('Link not valid', '<p>This review link is invalid or has been changed.</p>');
+  if (PropertiesService.getScriptProperties().getProperty('review:' + id)) {
+    return page_('Thanks — we already have your review!', '<p>We really appreciate you taking the time.</p>' + googleButtonPage_());
+  }
+  const found = findBooking_(id);
+  if (!found) return page_('Booking not found', `<p>We couldn't find booking ${esc_(id)}. Please call ${CONFIG.BUSINESS_PHONE}.</p>`);
+  const pre = Math.min(5, Math.max(0, parseInt(p.stars, 10) || 0));
+  const payload = JSON.stringify({ id: id, t: token, stars: pre }).replace(/</g, '\\u003c');
+  const body = `
+    <p>Hi ${esc_(firstName_(found.b.name))}! How was your ${esc_(serviceNoun_(found.b.serviceLabel))} with MUVE?</p>
+    <div class="stars" id="stars">${[1, 2, 3, 4, 5].map(function (n) { return `<button type="button" data-n="${n}" aria-label="${n} stars">★</button>`; }).join('')}</div>
+    <textarea id="comment" rows="5" maxlength="2000" placeholder="Tell us what went well or what we could do better (optional)"></textarea>
+    <div class="actions"><button id="send" class="btn btn--go">Send review</button></div>
+    <div id="result" class="result"></div>
+    <script>
+      var P = ${payload}, stars = P.stars;
+      var btns = document.querySelectorAll('#stars button');
+      function paint() { btns.forEach(function (b) { b.classList.toggle('on', Number(b.dataset.n) <= stars); }); }
+      btns.forEach(function (b) { b.onclick = function () { stars = Number(b.dataset.n); paint(); }; });
+      paint();
+      document.getElementById('send').onclick = function () {
+        if (!stars) { document.getElementById('result').textContent = 'Please pick 1 to 5 stars.'; return; }
+        var btn = this; btn.disabled = true;
+        document.getElementById('result').textContent = 'Sending…';
+        google.script.run
+          .withSuccessHandler(function (html) {
+            document.getElementById('stars').style.display = 'none';
+            document.getElementById('comment').style.display = 'none';
+            btn.style.display = 'none';
+            document.getElementById('result').innerHTML = html;
+          })
+          .withFailureHandler(function (err) { btn.disabled = false; document.getElementById('result').textContent = 'Something went wrong: ' + err.message; })
+          .submitReview(P.id, P.t, stars, document.getElementById('comment').value);
+      };
+    </script>`;
+  return page_('Rate your MUVE experience', body);
+}
+
+function googleButtonPage_() {
+  if (!CONFIG.GOOGLE_REVIEW_URL) return '';
+  return `<p>Would you also share it on Google? It really helps a small local business.</p>
+    <p><a class="btn btn--go" style="display:inline-block;text-decoration:none" href="${esc_(CONFIG.GOOGLE_REVIEW_URL)}" target="_blank" rel="noopener">⭐ Post on Google</a></p>`;
+}
+
+/** Called from the review page. Saves the review, emails the business, returns a thank-you message. */
+function submitReview(id, token, stars, comment) {
+  if (!validReviewToken_(id, token)) throw new Error('Invalid link.');
+  stars = parseInt(stars, 10);
+  if (!(stars >= 1 && stars <= 5)) throw new Error('Please pick 1 to 5 stars.');
+  comment = String(comment == null ? '' : comment).trim().slice(0, 2000);
+
+  const props = PropertiesService.getScriptProperties();
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  let found;
+  try {
+    if (props.getProperty('review:' + id)) return '<p><strong>Thanks — we already have your review!</strong></p>' + googleButtonPage_();
+    found = findBooking_(id);
+    if (!found) throw new Error('Booking not found.');
+    const b = found.b;
+    let rs = found.ss.getSheetByName('Reviews');
+    if (!rs) {
+      rs = found.ss.insertSheet('Reviews');
+      rs.getRange(1, 1, 1, REVIEW_HEADERS.length).setValues([REVIEW_HEADERS])
+        .setFontWeight('bold').setBackground('#F28C38').setFontColor('#102540');
+      rs.setFrozenRows(1);
+    }
+    const row = [Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'yyyy-MM-dd HH:mm'), b.confNumber, '', comment,
+      b.name, b.email, b.serviceLabel, "'" + b.date].map(sheetSafe_);
+    row[2] = stars; // keep as a number so ratings can be averaged
+    rs.appendRow(row);
+    props.setProperty('review:' + id, String(stars));
+  } finally {
+    lock.releaseLock();
+  }
+
+  const b = found.b;
+  const starText = '★★★★★'.slice(0, stars) + '☆☆☆☆☆'.slice(0, 5 - stars);
+  MailApp.sendEmail({
+    to: CONFIG.BUSINESS_EMAIL,
+    replyTo: b.email,
+    name: 'MUVE Reviews',
+    subject: `${starText} ${stars}/5 review from ${b.name} — ${b.confNumber}`,
+    htmlBody: emailShell_(`
+      <p><strong>New customer review</strong></p>
+      <p style="font-size:28px;color:#F28C38;margin:4px 0">${starText}</p>
+      <p><strong>${stars} out of 5</strong></p>
+      <blockquote style="border-left:4px solid #F28C38;margin:12px 0;padding:8px 14px;background:#FFF7EE">${comment ? esc_(comment).replace(/\n/g, '<br>') : '<em>No comments left.</em>'}</blockquote>
+      <table style="font-size:14px;margin-top:8px">
+        <tr><td style="color:#5b6470;padding-right:10px">Customer</td><td><strong>${esc_(b.name)}</strong> (${esc_(b.email)})</td></tr>
+        <tr><td style="color:#5b6470;padding-right:10px">Booking</td><td>${esc_(b.confNumber)} · ${esc_(b.serviceLabel)} · ${esc_(prettyDate_(b.date))}</td></tr>
+      </table>
+      <p class="muted">Saved in the "Reviews" tab of <a href="${found.ss.getUrl()}">${esc_(found.ss.getName())}</a>. Reply to this email to write back to the customer.</p>`),
+    body: `New ${stars}/5 review from ${b.name} (${b.email}) for ${b.confNumber}:\n\n${comment || '(no comments)'}`
+  });
+
+  return `<p><strong>Thank you, ${esc_(firstName_(b.name))}! 🧡</strong> Your review was sent to the MUVE team.</p>` + googleButtonPage_();
 }
 
 // ================= emails =================
@@ -433,6 +675,10 @@ function page_(title, body) {
       .btn--no{background:#fff;color:#B3261E;border:2px solid #B3261E}
       .btn:disabled{opacity:.5;cursor:wait}
       .result{margin-top:16px;font-weight:700}
+      .stars{display:flex;gap:4px;margin:14px 0}
+      .stars button{background:none;border:0;font-size:40px;line-height:1;color:#EAD8C4;cursor:pointer;padding:0 2px}
+      .stars button.on{color:#F28C38}
+      textarea{width:100%;box-sizing:border-box;border:2px solid #EAD8C4;border-radius:12px;padding:10px;font:inherit}
     </style></head><body><div class="card"><h1>${title}</h1>${body}</div></body></html>`;
   return HtmlService.createHtmlOutput(html).setTitle('MUVE booking');
 }
@@ -575,6 +821,11 @@ function setup() {
     if (t.getHandlerFunction() === 'createMonthlySheet') ScriptApp.deleteTrigger(t);
   });
   ScriptApp.newTrigger('createMonthlySheet').timeBased().onMonthDay(1).atHour(6).create();
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'sendReviewRequests') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('sendReviewRequests').timeBased().everyHours(1).create();
+  allMonthSpreadsheets_().forEach(ensureSheetFormat_);
   Logger.log('Setup done. Folder: ' + getFolder_().getUrl());
 }
 

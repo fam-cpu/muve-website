@@ -55,6 +55,25 @@ second job to a slot that's already booked.
 - **To cancel a job and free its slot:** change its **Status** cell in the spreadsheet to `Cancelled`.
 - **Unanswered requests** are cleared after 60 days.
 
+## Customer reviews
+1. **Add your Google review link.** In your Google Business Profile, click **Ask for reviews**
+   (or **Get more reviews**) and copy the link. It looks like `https://g.page/r/XXXX/review`.
+   Paste it into `GOOGLE_REVIEW_URL: ''` near the top of `Code.gs`.
+2. After a job, set its **Status** to **Completed** using the dropdown in the spreadsheet.
+3. Within the hour, the customer gets a "How did we do?" email with 5 stars and a Google review button.
+4. When they submit a rating, fam@muvepro.com gets an email with the stars and comments.
+   It's also saved in that month's **Reviews** tab.
+
+Every customer sees the Google button, whatever their rating. Google doesn't allow sending
+only happy customers to Google ("review gating").
+
+Reviews posted *on Google* go to your Google Business Profile, not to this script. To get
+emailed about those too, go to **Business Profile → ⋮ → Business Profile settings →
+Notifications** and turn on **Customer reviews**.
+
+**After updating the code:** run **setup** once more. It adds the hourly review check and
+the Status dropdown. Then deploy a **New version** of the existing deployment.
+
 **Email limits:** a regular Gmail account can send about 100 emails a day from a
 script. A Google Workspace account can send about 1,500. Each booking uses 2 emails,
 plus 1 when you confirm or decline.
