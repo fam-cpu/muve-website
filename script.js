@@ -7,11 +7,11 @@
       sizeLabel: "Home size",
       needsDropoff: true,
       sizes: [
-        { id: "studio", label: "Studio / 1 room", base: 380 },
-        { id: "1br", label: "1 bedroom", base: 520 },
-        { id: "2br", label: "2 bedroom", base: 810 },
-        { id: "3br", label: "3 bedroom", base: 1330 },
-        { id: "4br", label: "4+ bedroom", base: 1900 }
+        { id: "studio", label: "Studio / 1 room", base: 250 },
+        { id: "1br", label: "1 bedroom", base: 400 },
+        { id: "2br", label: "2 bedroom", base: 690 },
+        { id: "3br", label: "3 bedroom", base: 1210 },
+        { id: "4br", label: "4+ bedroom", base: 1780 }
       ]
     },
     // Delivery rates are starting placeholders — adjust to MUVE's real pricing.
@@ -38,6 +38,15 @@
       ]
     }
   };
+  // Gallery photos: put images in assets/gallery/ and list them here (newest first).
+  const GALLERY = [
+    { src: "assets/gallery/job-1.svg", caption: "Apartment move" },
+    { src: "assets/gallery/job-2.svg", caption: "Couch delivery" },
+    { src: "assets/gallery/job-3.svg", caption: "Garage clean-out" },
+    { src: "assets/gallery/job-4.svg", caption: "Home move" },
+    { src: "assets/gallery/job-5.svg", caption: "Junk haul-away" },
+    { src: "assets/gallery/job-6.svg", caption: "Office move" }
+  ];
   const ZONE_MULTIPLIERS = { "921": 1.0, "919": 1.0, "920": 1.0 };
   const DEFAULT_ZONE_MULTIPLIER = 1.2;
   const FAQ = [
@@ -313,6 +322,55 @@
     });
   }
 
+  // ---- gallery ----
+
+  let galleryIndex = 0;
+
+  function renderGallery() {
+    const grid = $("gallery-grid");
+    GALLERY.forEach((item, i) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "gallery-item";
+      btn.setAttribute("aria-label", "View photo: " + item.caption);
+      const img = document.createElement("img");
+      img.src = item.src;
+      img.alt = item.caption;
+      img.loading = "lazy";
+      const cap = document.createElement("span");
+      cap.className = "gallery-item__caption";
+      cap.textContent = item.caption;
+      btn.append(img, cap);
+      btn.addEventListener("click", () => openLightbox(i));
+      grid.appendChild(btn);
+    });
+  }
+
+  function showLightboxImage() {
+    const item = GALLERY[galleryIndex];
+    $("lightbox-img").src = item.src;
+    $("lightbox-img").alt = item.caption;
+    $("lightbox-caption").textContent = `${item.caption} · ${galleryIndex + 1} of ${GALLERY.length}`;
+  }
+
+  function openLightbox(i) {
+    galleryIndex = i;
+    showLightboxImage();
+    $("lightbox").classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+    $("lightbox-close").focus();
+  }
+
+  function closeLightbox() {
+    $("lightbox").classList.add("hidden");
+    document.body.style.overflow = "";
+  }
+
+  function stepLightbox(dir) {
+    galleryIndex = (galleryIndex + dir + GALLERY.length) % GALLERY.length;
+    showLightboxImage();
+  }
+
   // ---- chat widget ----
 
   function addChatMsg(who, text) {
@@ -370,6 +428,7 @@
     renderSizeOptions();
     renderPricing();
     renderFaq();
+    renderGallery();
     renderQuickQuestions();
     loadRecaptcha();
 
@@ -397,6 +456,17 @@
     $("booking-form").addEventListener("submit", handleBookingSubmit);
     $("booking-form").addEventListener("input", () => ["step1-error", "step2-error", "booking-error"].forEach((id) => showError(id, "")));
     $("back-to-site").addEventListener("click", backToSite);
+
+    $("lightbox-close").addEventListener("click", closeLightbox);
+    $("lightbox-prev").addEventListener("click", () => stepLightbox(-1));
+    $("lightbox-next").addEventListener("click", () => stepLightbox(1));
+    $("lightbox").addEventListener("click", (e) => { if (e.target === $("lightbox")) closeLightbox(); });
+    document.addEventListener("keydown", (e) => {
+      if ($("lightbox").classList.contains("hidden")) return;
+      if (e.key === "Escape") closeLightbox();
+      else if (e.key === "ArrowLeft") stepLightbox(-1);
+      else if (e.key === "ArrowRight") stepLightbox(1);
+    });
 
     $("chat-toggle").addEventListener("click", () => setChatOpen($("chat-panel").classList.contains("hidden")));
     $("chat-close").addEventListener("click", () => setChatOpen(false));

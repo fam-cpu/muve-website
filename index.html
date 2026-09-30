@@ -22,6 +22,7 @@
         <a href="#services">Services</a>
         <a href="#how">How it works</a>
         <a href="#pricing">Pricing</a>
+        <a href="#gallery">Gallery</a>
         <a href="#faq">FAQ</a>
       </nav>
       <div class="site-header__actions">
@@ -296,8 +297,20 @@
       </div>
     </section>
 
+    <!-- GALLERY -->
+    <section id="gallery" class="section">
+      <div class="wrap">
+        <div class="section__head">
+          <p class="eyebrow">Our work</p>
+          <h2 class="section__title">Recent moves, deliveries &amp; hauls.</h2>
+          <p class="section__sub">A look at jobs our crews have wrapped up around San Diego County.</p>
+        </div>
+        <div class="gallery-grid" id="gallery-grid"></div>
+      </div>
+    </section>
+
     <!-- FAQ -->
-    <section id="faq" class="section">
+    <section id="faq" class="section section--warm">
       <div class="wrap wrap--narrow">
         <div class="section__head">
           <p class="eyebrow">FAQ</p>
@@ -367,6 +380,17 @@
       <span class="chat-toggle__dot"></span>Questions?
     </button>
   </div>
+</div>
+
+<!-- GALLERY LIGHTBOX -->
+<div id="lightbox" class="lightbox hidden" role="dialog" aria-modal="true" aria-label="Photo viewer">
+  <button type="button" id="lightbox-close" class="lightbox__close" aria-label="Close">&#10005;</button>
+  <button type="button" id="lightbox-prev" class="lightbox__nav lightbox__nav--prev" aria-label="Previous photo">&#8249;</button>
+  <figure class="lightbox__figure">
+    <img id="lightbox-img" src="" alt="">
+    <figcaption id="lightbox-caption"></figcaption>
+  </figure>
+  <button type="button" id="lightbox-next" class="lightbox__nav lightbox__nav--next" aria-label="Next photo">&#8250;</button>
 </div>
 
 <!-- ================= CONFIRMATION SCREEN ================= -->
