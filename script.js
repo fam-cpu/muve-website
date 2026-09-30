@@ -57,7 +57,7 @@
     { q: "Can I cancel or reschedule?", keywords: ["cancel", "reschedule", "change date", "postpone"], a: "Yes — just call or email us at least 24 hours ahead and we'll move your slot, no fee." },
     { q: "Is a deposit required?", keywords: ["deposit", "pay", "payment", "upfront"], a: "No deposit to book. You pay the confirmed price after the job's done — cash, card, or online." }
   ];
-  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby4MqBmuMY-1wmFcY3eeasnhW7XbvSHf8BptP6g1JoFnF8n5Hn4f5KYjC8_sA699bZwIQ/exec";
+  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzA2mgTlSMYKrPiMcznpA3zszZ9QKR0uGsS3RXLJPA_3tEBeXiMkcrQJTDao4d_I2b8mw/exec";
   const WINDOW_LABELS = { morning: "Morning (8am–11am)", midday: "Midday (11am–2pm)", afternoon: "Afternoon (2pm–5pm)" };
   // reCAPTCHA v3 site key (public) from google.com/recaptcha/admin — the only place it needs to be set.
   // Leave as "" to disable reCAPTCHA; the secret key goes in the Apps Script, never here.
