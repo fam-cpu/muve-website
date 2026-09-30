@@ -1,27 +1,50 @@
 (function () {
   "use strict";
 
-  const MOVING_SIZES = [
-    { id: "studio", label: "Studio / 1 room", base: 380 },
-    { id: "1br", label: "1 bedroom", base: 520 },
-    { id: "2br", label: "2 bedroom", base: 810 },
-    { id: "3br", label: "3 bedroom", base: 1330 },
-    { id: "4br", label: "4+ bedroom", base: 1900 }
-  ];
-  const JUNK_SIZES = [
-    { id: "item", label: "Single item / minimum load", base: 80 },
-    { id: "quarter", label: "1/4 truck load", base: 180 },
-    { id: "half", label: "1/2 truck load", base: 330 },
-    { id: "threeq", label: "3/4 truck load", base: 475 },
-    { id: "full", label: "Full truck load", base: 620 }
-  ];
+  const SERVICES = {
+    moving: {
+      label: "Moving",
+      sizeLabel: "Home size",
+      needsDropoff: true,
+      sizes: [
+        { id: "studio", label: "Studio / 1 room", base: 380 },
+        { id: "1br", label: "1 bedroom", base: 520 },
+        { id: "2br", label: "2 bedroom", base: 810 },
+        { id: "3br", label: "3 bedroom", base: 1330 },
+        { id: "4br", label: "4+ bedroom", base: 1900 }
+      ]
+    },
+    // Delivery rates are starting placeholders — adjust to MUVE's real pricing.
+    delivery: {
+      label: "Delivery",
+      sizeLabel: "What are we delivering?",
+      needsDropoff: true,
+      sizes: [
+        { id: "single", label: "Single item (couch, dresser…)", base: 95 },
+        { id: "few", label: "2–4 items", base: 160 },
+        { id: "small", label: "Small load (5+ items)", base: 260 }
+      ]
+    },
+    junk: {
+      label: "Junk & Trash Removal",
+      sizeLabel: "Load size",
+      needsDropoff: false,
+      sizes: [
+        { id: "item", label: "Single item / minimum load", base: 80 },
+        { id: "quarter", label: "1/4 truck load", base: 180 },
+        { id: "half", label: "1/2 truck load", base: 330 },
+        { id: "threeq", label: "3/4 truck load", base: 475 },
+        { id: "full", label: "Full truck load", base: 620 }
+      ]
+    }
+  };
   const ZONE_MULTIPLIERS = { "921": 1.0, "919": 1.0, "920": 1.0 };
   const DEFAULT_ZONE_MULTIPLIER = 1.2;
   const FAQ = [
-    { q: "How does the instant quote work?", keywords: ["quote", "estimate", "price", "cost", "how much"], a: "Punch your ZIP code and job size into the calculator up top. We multiply a base rate by your zone to give you a price range in seconds — the final number is confirmed on-site." },
+    { q: "How does the instant quote work?", keywords: ["quote", "estimate", "price", "cost", "how much"], a: "Pick a service and drop in your ZIP code and job size. We multiply a base rate by your zone to give you a price range in seconds — the final number is confirmed on-site." },
     { q: "What items do you accept?", keywords: ["accept", "items", "furniture", "appliance", "take", "junk", "what can"], a: "Furniture, appliances, yard waste, general household junk, and most bulky items. We can't take hazardous materials like paint, chemicals, or propane tanks." },
-    { q: "What's your service area?", keywords: ["area", "zip", "location", "where", "cover"], a: "We cover San Diego County core ZIPs at standard rates, with outlying areas quoted at a small travel adjustment — enter your ZIP in the calculator to see your zone." },
-    { q: "Do I need to be there for a junk pickup?", keywords: ["home", "present", "there", "during", "pickup"], a: "Someone 18+ needs to be on-site to point out what's going and confirm the final price before we load anything." },
+    { q: "What's your service area?", keywords: ["area", "zip", "location", "where", "cover"], a: "We cover San Diego County core ZIPs at standard rates, with outlying areas quoted at a small travel adjustment — enter your ZIP to see your zone." },
+    { q: "Do I need to be there?", keywords: ["home", "present", "there", "during", "pickup"], a: "Someone 18+ needs to be on-site to point out what's going and confirm the final price before we load anything." },
     { q: "Can I cancel or reschedule?", keywords: ["cancel", "reschedule", "change date", "postpone"], a: "Yes — just call or email us at least 24 hours ahead and we'll move your slot, no fee." },
     { q: "Is a deposit required?", keywords: ["deposit", "pay", "payment", "upfront"], a: "No deposit to book. You pay the confirmed price after the job's done — cash, card, or online." }
   ];
@@ -33,75 +56,115 @@
 
   const state = {
     serviceType: "moving",
+    step: 1,
     quoteResult: null,
     chatOpened: false
   };
 
   const $ = (id) => document.getElementById(id);
-
-  function getSizeList(type) {
-    return type === "moving" ? MOVING_SIZES : JUNK_SIZES;
-  }
+  const ZIP_RE = /^\d{5}$/;
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   function getZoneMultiplier(zip) {
     const prefix = (zip || "").trim().slice(0, 3);
     return ZONE_MULTIPLIERS[prefix] ?? DEFAULT_ZONE_MULTIPLIER;
   }
 
-  // ---- instant quote calculator ----
-
-  function renderSizeOptions() {
-    const list = getSizeList(state.serviceType);
-    const select = $("quote-size");
-    select.innerHTML = list.map((opt) => `<option value="${opt.id}">${opt.label}</option>`).join("");
-    $("quote-size-label").textContent = state.serviceType === "moving" ? "Home size" : "Load size";
+  function showError(id, msg) {
+    const el = $(id);
+    el.textContent = msg;
+    el.classList.toggle("hidden", !msg);
   }
 
-  function setServiceType(type) {
+  // ---- step 1: service & size ----
+
+  function renderSizeOptions(preselect) {
+    const svc = SERVICES[state.serviceType];
+    $("b-size").innerHTML = svc.sizes.map((opt) => `<option value="${opt.id}">${opt.label}</option>`).join("");
+    if (preselect) $("b-size").value = preselect;
+    $("b-size-label").textContent = svc.sizeLabel;
+    $("b-zip-label").textContent = svc.needsDropoff ? "Pickup ZIP" : "Your ZIP";
+    $("dropoff-field").classList.toggle("hidden", !svc.needsDropoff);
+  }
+
+  function setServiceType(type, preselectSize) {
     state.serviceType = type;
-    $("quote-type-moving").classList.toggle("active", type === "moving");
-    $("quote-type-junk").classList.toggle("active", type === "junk");
-    renderSizeOptions();
+    document.querySelectorAll(".service-pill").forEach((btn) => {
+      const on = btn.dataset.service === type;
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-checked", on ? "true" : "false");
+    });
+    renderSizeOptions(preselectSize);
     state.quoteResult = null;
-    $("quote-result").classList.add("hidden");
   }
 
   function calculateQuote() {
-    const list = getSizeList(state.serviceType);
-    const sizeId = $("quote-size").value;
-    const size = list.find((s) => s.id === sizeId) || list[0];
-    const zip = $("quote-zip").value;
+    const svc = SERVICES[state.serviceType];
+    const size = svc.sizes.find((s) => s.id === $("b-size").value) || svc.sizes[0];
+    const zip = $("b-zip").value.trim();
     const mult = getZoneMultiplier(zip);
     const low = Math.round((size.base * mult * 0.92) / 5) * 5;
     const high = Math.round((size.base * mult * 1.18) / 5) * 5;
-    const zoneNote = zip && zip.length === 5
-      ? (mult === 1 ? "core service area rate" : "standard travel rate applied")
-      : "enter a ZIP for a zone-adjusted estimate";
+    const zoneNote = mult === 1 ? "core service area rate" : "standard travel rate applied";
 
     state.quoteResult = {
       low, high,
+      sizeLabel: size.label,
       rangeLabel: `$${low} – $${high}`,
-      detail: `${size.label} · ${zoneNote}. Estimate only — final price is confirmed on-site.`
+      detail: `${svc.label} · ${size.label} · ${zoneNote}. Final price is confirmed on-site.`
     };
-
     $("quote-result-range").textContent = state.quoteResult.rangeLabel;
     $("quote-result-detail").textContent = state.quoteResult.detail;
-    $("quote-result").classList.remove("hidden");
-
-    // carry the quote's service/zip into the booking form
-    $("b-service").value = state.serviceType;
-    if (zip) $("b-zip").value = zip;
   }
 
-  // ---- booking form ----
+  // ---- wizard navigation ----
 
-  function loadRecaptcha() {
-    if (!RECAPTCHA_SITE_KEY) return;
-    const script = document.createElement("script");
-    script.src = "https://www.google.com/recaptcha/api.js?render=" + encodeURIComponent(RECAPTCHA_SITE_KEY);
-    script.async = true;
-    document.head.appendChild(script);
+  function validateStep(step) {
+    if (step === 1) {
+      const zip = $("b-zip").value.trim();
+      const drop = $("b-dropoff-zip").value.trim();
+      if (!ZIP_RE.test(zip)) return ["step1-error", "Please enter a 5-digit ZIP code."];
+      if (SERVICES[state.serviceType].needsDropoff && drop && !ZIP_RE.test(drop)) return ["step1-error", "Drop-off ZIP should be 5 digits (or leave it blank)."];
+    }
+    if (step === 2) {
+      const date = $("b-date").value;
+      if (!date) return ["step2-error", "Please pick a preferred date."];
+      if (date < $("b-date").min) return ["step2-error", "Please pick a date from today onward."];
+    }
+    if (step === 3) {
+      const name = $("b-name").value.trim(), phone = $("b-phone").value.trim();
+      const email = $("b-email").value.trim(), addr = $("b-address").value.trim();
+      if (!name || !phone || !email || !addr) return ["booking-error", "Please fill in your name, phone, email and address."];
+      if (!EMAIL_RE.test(email)) return ["booking-error", "That email address doesn't look right."];
+    }
+    return null;
   }
+
+  function goToStep(step) {
+    if (step > state.step) {
+      for (let s = state.step; s < step; s++) {
+        const err = validateStep(s);
+        if (err) { showError(err[0], err[1]); return; }
+        showError(["step1-error", "step2-error", "booking-error"][s - 1], "");
+      }
+    }
+    if (step === 2) calculateQuote();
+    state.step = step;
+    document.querySelectorAll(".step").forEach((fs) => fs.classList.toggle("hidden", Number(fs.dataset.step) !== step));
+    document.querySelectorAll("[data-step-dot]").forEach((dot) => {
+      const n = Number(dot.dataset.stepDot);
+      dot.classList.toggle("is-active", n === step);
+      dot.classList.toggle("is-done", n < step);
+    });
+    const first = document.querySelector(`.step[data-step="${step}"] input, .step[data-step="${step}"] select`);
+    if (first && step > 1) first.focus({ preventScroll: true });
+  }
+
+  function scrollToBooking() {
+    $("book").scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  // ---- submit ----
 
   function getRecaptchaToken(action) {
     return new Promise((resolve) => {
@@ -118,55 +181,74 @@
     });
   }
 
+  function loadRecaptcha() {
+    if (!RECAPTCHA_SITE_KEY) return;
+    const script = document.createElement("script");
+    script.src = "https://www.google.com/recaptcha/api.js?render=" + encodeURIComponent(RECAPTCHA_SITE_KEY);
+    script.async = true;
+    document.head.appendChild(script);
+  }
+
   async function handleBookingSubmit(e) {
     e.preventDefault();
+    if (state.step !== 3) { goToStep(state.step + 1); return; }
+    const err = validateStep(3);
+    if (err) { showError(err[0], err[1]); return; }
+    showError("booking-error", "");
+
+    const svc = SERVICES[state.serviceType];
     const b = {
       name: $("b-name").value.trim(),
       phone: $("b-phone").value.trim(),
       email: $("b-email").value.trim(),
       zip: $("b-zip").value.trim(),
+      dropoffZip: svc.needsDropoff ? $("b-dropoff-zip").value.trim() : "",
       address: $("b-address").value.trim(),
-      service: $("b-service").value,
+      service: state.serviceType,
+      size: state.quoteResult ? state.quoteResult.sizeLabel : "",
+      estimate: state.quoteResult ? state.quoteResult.rangeLabel : "",
       date: $("b-date").value,
       window: $("b-window").value,
       notes: $("b-notes").value.trim()
     };
 
-    const errorEl = $("booking-error");
-    if (!b.name || !b.phone || !b.email || !b.zip || !b.address || !b.date) {
-      errorEl.textContent = "Please fill in all required fields.";
-      errorEl.classList.remove("hidden");
-      return;
-    }
-    errorEl.classList.add("hidden");
+    const btn = $("submit-btn");
+    btn.disabled = true;
+    btn.textContent = "Sending…";
 
     const confNumber = "MUVE-" + Math.floor(100000 + Math.random() * 900000);
     const recaptchaToken = await getRecaptchaToken("booking_submit");
     const payload = { ...b, submittedAt: new Date().toISOString(), confNumber, recaptchaToken };
 
-    fetch(APPS_SCRIPT_URL, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify(payload)
-    }).catch(() => {});
+    try {
+      await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify(payload)
+      });
+    } catch (_) {
+      btn.disabled = false;
+      btn.textContent = "Request booking";
+      showError("booking-error", "We couldn't send your request — please check your connection and try again, or call (844) 867-0674.");
+      return;
+    }
 
-    const dateLabel = b.date
-      ? new Date(b.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
-      : "";
+    btn.disabled = false;
+    btn.textContent = "Request booking";
 
+    const dateLabel = new Date(b.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
     showConfirmation({
       confNumber,
       name: b.name,
       phone: b.phone,
       email: b.email,
-      address: b.address,
-      zip: b.zip,
+      address: `${b.address}, ${b.zip}`,
       notes: b.notes,
-      serviceLabel: b.service === "moving" ? "Moving" : "Junk & Trash Removal",
+      serviceLabel: b.size ? `${svc.label} · ${b.size}` : svc.label,
       dateLabel,
       windowLabel: WINDOW_LABELS[b.window] || b.window,
-      priceLabel: state.quoteResult ? state.quoteResult.rangeLabel : "To be confirmed on-site"
+      priceLabel: b.estimate || "To be confirmed on-site"
     });
   }
 
@@ -177,18 +259,13 @@
     $("conf-date").textContent = c.dateLabel;
     $("conf-window").textContent = c.windowLabel;
     $("conf-price").textContent = c.priceLabel;
-    $("conf-address").textContent = `${c.address}, ${c.zip}`;
+    $("conf-address").textContent = c.address;
     $("conf-email").textContent = c.email;
     $("conf-phone").textContent = c.phone;
     $("conf-window-2").textContent = c.windowLabel;
     $("conf-date-2").textContent = c.dateLabel;
-
-    if (c.notes) {
-      $("conf-notes").textContent = c.notes;
-      $("conf-notes-wrap").classList.remove("hidden");
-    } else {
-      $("conf-notes-wrap").classList.add("hidden");
-    }
+    $("conf-notes").textContent = c.notes;
+    $("conf-notes-wrap").classList.toggle("hidden", !c.notes);
 
     $("site-view").classList.add("hidden");
     $("confirmation-view").classList.remove("hidden");
@@ -196,9 +273,44 @@
   }
 
   function backToSite() {
+    $("booking-form").reset();
+    setServiceType("moving");
+    goToStep(1);
     $("confirmation-view").classList.add("hidden");
     $("site-view").classList.remove("hidden");
     window.scrollTo(0, 0);
+  }
+
+  // ---- pricing & faq sections ----
+
+  function renderPricing() {
+    const order = ["moving", "delivery", "junk"];
+    $("price-grid").innerHTML = order.map((key) => {
+      const svc = SERVICES[key];
+      const from = Math.min(...svc.sizes.map((s) => s.base));
+      const rows = svc.sizes.map((s) => `<li><span>${s.label}</span><span>from $${s.base}</span></li>`).join("");
+      const featured = key === "moving";
+      return `<div class="price-card${featured ? " price-card--featured" : ""}">
+        ${featured ? '<span class="price-card__badge">Most booked</span>' : ""}
+        <h3 class="price-card__title">${svc.label}</h3>
+        <p class="price-card__from">Starting at <strong>$${from}</strong></p>
+        <ul>${rows}</ul>
+        <button type="button" class="btn btn--primary btn--full" data-pick="${key}">Get my price</button>
+      </div>`;
+    }).join("");
+  }
+
+  function renderFaq() {
+    const list = $("faq-list");
+    FAQ.forEach((f) => {
+      const d = document.createElement("details");
+      const s = document.createElement("summary");
+      const p = document.createElement("p");
+      s.textContent = f.q;
+      p.textContent = f.a;
+      d.append(s, p);
+      list.appendChild(d);
+    });
   }
 
   // ---- chat widget ----
@@ -213,19 +325,14 @@
 
   function renderQuickQuestions() {
     const wrap = $("chat-quick");
-    wrap.innerHTML = "";
     FAQ.slice(0, 4).forEach((f, i) => {
       const btn = document.createElement("button");
+      btn.type = "button";
       btn.className = "chat-quick__btn";
       btn.textContent = f.q;
-      btn.addEventListener("click", () => answerFaq(i));
+      btn.addEventListener("click", () => { addChatMsg("user", FAQ[i].q); addChatMsg("bot", FAQ[i].a); });
       wrap.appendChild(btn);
     });
-  }
-
-  function answerFaq(i) {
-    addChatMsg("user", FAQ[i].q);
-    addChatMsg("bot", FAQ[i].a);
   }
 
   function setChatOpen(open) {
@@ -234,10 +341,6 @@
       state.chatOpened = true;
       addChatMsg("bot", "Hey — I can answer quick questions about pricing, service area, and booking. Pick one below or type your own.");
     }
-  }
-
-  function toggleChat() {
-    setChatOpen($("chat-panel").classList.contains("hidden"));
   }
 
   function sendChat() {
@@ -260,24 +363,44 @@
   // ---- wiring ----
 
   document.addEventListener("DOMContentLoaded", () => {
+    const today = new Date();
+    today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+    $("b-date").min = today.toISOString().slice(0, 10);
+
     renderSizeOptions();
+    renderPricing();
+    renderFaq();
+    renderQuickQuestions();
     loadRecaptcha();
 
-    $("quote-type-moving").addEventListener("click", () => setServiceType("moving"));
-    $("quote-type-junk").addEventListener("click", () => setServiceType("junk"));
-    $("calculate-quote-btn").addEventListener("click", calculateQuote);
+    document.querySelectorAll(".service-pill").forEach((btn) =>
+      btn.addEventListener("click", () => setServiceType(btn.dataset.service)));
 
-    $("booking-form").addEventListener("submit", handleBookingSubmit);
-    $("back-to-site").addEventListener("click", backToSite);
-
-    $("nav-faq").addEventListener("click", () => setChatOpen(true));
-    $("chat-toggle").addEventListener("click", toggleChat);
-    $("chat-close").addEventListener("click", () => setChatOpen(false));
-    $("chat-send").addEventListener("click", sendChat);
-    $("chat-input").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") sendChat();
+    document.addEventListener("click", (e) => {
+      const next = e.target.closest("[data-next]");
+      const back = e.target.closest("[data-back]");
+      const pick = e.target.closest("[data-pick]");
+      const scroll = e.target.closest("[data-scroll-booking]");
+      if (next) goToStep(Number(next.dataset.next));
+      else if (back) goToStep(Number(back.dataset.back));
+      else if (pick) {
+        setServiceType(pick.dataset.pick, pick.dataset.size);
+        goToStep(1);
+        scrollToBooking();
+        $("b-zip").focus({ preventScroll: true });
+      } else if (scroll) {
+        e.preventDefault();
+        scrollToBooking();
+      }
     });
 
-    renderQuickQuestions();
+    $("booking-form").addEventListener("submit", handleBookingSubmit);
+    $("booking-form").addEventListener("input", () => ["step1-error", "step2-error", "booking-error"].forEach((id) => showError(id, "")));
+    $("back-to-site").addEventListener("click", backToSite);
+
+    $("chat-toggle").addEventListener("click", () => setChatOpen($("chat-panel").classList.contains("hidden")));
+    $("chat-close").addEventListener("click", () => setChatOpen(false));
+    $("chat-send").addEventListener("click", sendChat);
+    $("chat-input").addEventListener("keydown", (e) => { if (e.key === "Enter") sendChat(); });
   });
 })();
