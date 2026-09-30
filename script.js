@@ -62,11 +62,14 @@
   // reCAPTCHA v3 site key (public) from google.com/recaptcha/admin — the only place it needs to be set.
   // Leave as "" to disable reCAPTCHA; the secret key goes in the Apps Script, never here.
   const RECAPTCHA_SITE_KEY = "";
+  const PREVIEW = false; // true only in the offline preview copy: nothing is sent to the Apps Script
 
   const state = {
     serviceType: "moving",
     step: 1,
     quoteResult: null,
+    fullSlots: {}, // { "2026-10-20": ["morning", ...] } — slots already taken
+    availabilityLoaded: false,
     chatOpened: false
   };
 
@@ -126,6 +129,43 @@
     $("quote-result-detail").textContent = state.quoteResult.detail;
   }
 
+  // ---- availability (double-booking protection) ----
+
+  async function loadAvailability() {
+    if (PREVIEW) return;
+    try {
+      const res = await fetch(APPS_SCRIPT_URL + "?action=availability");
+      const data = await res.json();
+      if (data && data.ok && data.full) {
+        Object.keys(data.full).forEach((date) => {
+          state.fullSlots[date] = Array.from(new Set((state.fullSlots[date] || []).concat(data.full[date])));
+        });
+        state.availabilityLoaded = true;
+        updateWindowOptions();
+      }
+    } catch (_) {
+      // couldn't check — the server still rejects a taken slot on submit
+    }
+  }
+
+  function isSlotFull(date, win) {
+    return (state.fullSlots[date] || []).includes(win);
+  }
+
+  function updateWindowOptions() {
+    const date = $("b-date").value;
+    const select = $("b-window");
+    let firstOpen = null;
+    Array.from(select.options).forEach((opt) => {
+      const full = !!date && isSlotFull(date, opt.value);
+      opt.disabled = full;
+      opt.textContent = WINDOW_LABELS[opt.value] + (full ? " — fully booked" : "");
+      if (!full && firstOpen === null) firstOpen = opt.value;
+    });
+    if (select.selectedOptions[0] && select.selectedOptions[0].disabled && firstOpen) select.value = firstOpen;
+    if (date && firstOpen === null) showError("step2-error", "That day is fully booked — please pick another date.");
+  }
+
   // ---- wizard navigation ----
 
   function validateStep(step) {
@@ -139,6 +179,7 @@
       const date = $("b-date").value;
       if (!date) return ["step2-error", "Please pick a preferred date."];
       if (date < $("b-date").min) return ["step2-error", "Please pick a date from today onward."];
+      if (isSlotFull(date, $("b-window").value)) return ["step2-error", "That time is already booked — please pick another time or date."];
     }
     if (step === 3) {
       const name = $("b-name").value.trim(), phone = $("b-phone").value.trim();
@@ -157,7 +198,10 @@
         showError(["step1-error", "step2-error", "booking-error"][s - 1], "");
       }
     }
-    if (step === 2) calculateQuote();
+    if (step === 2) {
+      calculateQuote();
+      loadAvailability();
+    }
     state.step = step;
     document.querySelectorAll(".step").forEach((fs) => fs.classList.toggle("hidden", Number(fs.dataset.step) !== step));
     document.querySelectorAll("[data-step-dot]").forEach((dot) => {
@@ -225,26 +269,28 @@
     btn.disabled = true;
     btn.textContent = "Sending…";
 
-    const confNumber = "MUVE-" + Math.floor(100000 + Math.random() * 900000);
     const recaptchaToken = await getRecaptchaToken("booking_submit");
-    const payload = { ...b, submittedAt: new Date().toISOString(), confNumber, recaptchaToken };
-
-    try {
-      await fetch(APPS_SCRIPT_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify(payload)
-      });
-    } catch (_) {
-      btn.disabled = false;
-      btn.textContent = "Request booking";
-      showError("booking-error", "We couldn't send your request — please check your connection and try again, or call (844) 867-0674.");
-      return;
-    }
+    const payload = { ...b, submittedAt: new Date().toISOString(), recaptchaToken };
+    const result = await sendBooking(payload);
 
     btn.disabled = false;
     btn.textContent = "Request booking";
+
+    if (!result.ok) {
+      if (result.reason === "slot_taken") {
+        state.fullSlots[b.date] = (state.fullSlots[b.date] || []).concat(b.window);
+        goToStep(2);
+        updateWindowOptions();
+        showError("step2-error", "Sorry — someone just booked that time. Please pick another time or date.");
+        loadAvailability();
+        return;
+      }
+      showError("booking-error", result.reason === "network"
+        ? "We couldn't send your request — please check your connection and try again, or call (844) 867-0674."
+        : "We couldn't process your request. Please check your details or call (844) 867-0674.");
+      return;
+    }
+    const confNumber = result.confNumber;
 
     const dateLabel = new Date(b.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
     showConfirmation({
@@ -259,6 +305,21 @@
       windowLabel: WINDOW_LABELS[b.window] || b.window,
       priceLabel: b.estimate || "To be confirmed on-site"
     });
+  }
+
+  async function sendBooking(payload) {
+    if (PREVIEW) return { ok: true, confNumber: "MUVE-" + Math.floor(100000 + Math.random() * 900000) };
+    try {
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      return data && typeof data.ok === "boolean" ? data : { ok: false, reason: "invalid" };
+    } catch (_) {
+      return { ok: false, reason: "network" };
+    }
   }
 
   function showConfirmation(c) {
@@ -454,6 +515,7 @@
     });
 
     $("booking-form").addEventListener("submit", handleBookingSubmit);
+    $("b-date").addEventListener("change", updateWindowOptions);
     $("booking-form").addEventListener("input", () => ["step1-error", "step2-error", "booking-error"].forEach((id) => showError(id, "")));
     $("back-to-site").addEventListener("click", backToSite);
 

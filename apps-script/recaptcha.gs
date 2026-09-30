@@ -1,17 +1,9 @@
 /**
  * reCAPTCHA v3 verification for the MUVE booking form.
  *
- * Setup (in the Apps Script project behind APPS_SCRIPT_URL):
- *   1. Paste this file into the project.
- *   2. Project Settings → Script Properties → add RECAPTCHA_SECRET_KEY = <your secret key>.
- *   3. At the top of doPost, after parsing the payload, add:
- *
- *        var payload = JSON.parse(e.postData.contents);
- *        if (!isHuman(payload.recaptchaToken)) {
- *          return ContentService.createTextOutput("rejected");
- *        }
- *
- *   4. Deploy → Manage deployments → edit → New version (so the live URL picks it up).
+ * Lives in the same Apps Script project as Code.gs, whose doPost already calls
+ * isHuman(). To turn it on: Project Settings → Script Properties → add
+ * RECAPTCHA_SECRET_KEY = <your secret key>. Until then every booking is let through.
  *
  * The secret key must never go in script.js or anywhere in this repo.
  */
