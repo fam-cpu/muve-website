@@ -41,7 +41,18 @@ const WINDOW_LABELS = { morning: 'Morning (8am–11am)', midday: 'Midday (11am�
 
 // ================= website → new booking request =================
 
+const SCRIPT_VERSION = 'muve-bookings-2';
+
 function doPost(e) {
+  try {
+    return handlePost_(e);
+  } catch (err) {
+    console.error('doPost failed: ' + (err && err.stack || err));
+    return json_({ ok: false, reason: 'server', message: String(err && err.message || err).slice(0, 200) });
+  }
+}
+
+function handlePost_(e) {
   let data;
   try {
     data = JSON.parse(e.postData.contents);
@@ -73,7 +84,14 @@ function doPost(e) {
 // ================= owner review page =================
 
 function doGet(e) {
-  if (e && e.parameter && e.parameter.action === 'availability') return json_({ ok: true, capacity: CONFIG.JOBS_PER_SLOT, full: fullSlots_() });
+  if (e && e.parameter && e.parameter.action === 'availability') {
+    try {
+      return json_({ ok: true, version: SCRIPT_VERSION, capacity: CONFIG.JOBS_PER_SLOT, full: fullSlots_() });
+    } catch (err) {
+      console.error('availability failed: ' + (err && err.stack || err));
+      return json_({ ok: false, version: SCRIPT_VERSION, reason: 'server', message: String(err && err.message || err).slice(0, 200) });
+    }
+  }
 
   const id = String((e && e.parameter && e.parameter.id) || '');
   const token = String((e && e.parameter && e.parameter.t) || '');

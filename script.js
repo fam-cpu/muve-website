@@ -285,9 +285,10 @@
         loadAvailability();
         return;
       }
-      showError("booking-error", result.reason === "network"
+      const code = result.reason + (result.status ? "-" + result.status : "") + (result.message ? ": " + result.message : "");
+      showError("booking-error", (result.reason === "network"
         ? "We couldn't send your request — please check your connection and try again, or call (844) 867-0674."
-        : "We couldn't process your request. Please check your details or call (844) 867-0674.");
+        : "We couldn't process your request. Please check your details or call (844) 867-0674.") + " (Error code: " + code + ")");
       return;
     }
     const confNumber = result.confNumber;
@@ -315,8 +316,10 @@
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify(payload)
       });
-      const data = await res.json();
-      return data && typeof data.ok === "boolean" ? data : { ok: false, reason: "invalid" };
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch (_) { return { ok: false, reason: "not-json", status: res.status }; }
+      return data && typeof data.ok === "boolean" ? data : { ok: false, reason: "not-json", status: res.status };
     } catch (_) {
       return { ok: false, reason: "network" };
     }
