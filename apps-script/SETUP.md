@@ -74,6 +74,14 @@ Notifications** and turn on **Customer reviews**.
 **After updating the code:** run **setup** once more. It adds the hourly review check and
 the Status dropdown. Then deploy a **New version** of the existing deployment.
 
+## If customer emails bounce ("Message rejected")
+The script sends through the fam@muvepro.com Gmail mailbox (`GmailApp`), so emails go out the
+same way as ones you write yourself. If you update from an older version that used `MailApp`:
+1. Paste in the new `Code.gs`, then run **setup** once and click **Allow**. This grants the new Gmail permission.
+2. Deploy a **New version** of the existing deployment.
+3. Put your own outside address (for example a personal Gmail) in `sendTestToOutsideEmail`,
+   run it, and check that it arrives. In Admin console → **Reporting → Email Log Search** it should show **Delivered**.
+
 **Email limits:** a regular Gmail account can send about 100 emails a day from a
 script. A Google Workspace account can send about 1,500. Each booking uses 2 emails,
 plus 1 when you confirm or decline.

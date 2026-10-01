@@ -440,7 +440,7 @@ function sendReviewRequest_(b) {
   const stars = [1, 2, 3, 4, 5].map(function (n) {
     return `<a href="${reviewLink_(b.confNumber, n)}" style="text-decoration:none;font-size:34px;color:#F28C38;padding:0 3px" title="${n} star${n > 1 ? 's' : ''}">★</a>`;
   }).join('');
-  MailApp.sendEmail({
+  sendMail_({
     to: b.email,
     replyTo: CONFIG.BUSINESS_EMAIL,
     name: CONFIG.BUSINESS_NAME,
@@ -537,7 +537,7 @@ function submitReview(id, token, stars, comment) {
 
   const b = found.b;
   const starText = '★★★★★'.slice(0, stars) + '☆☆☆☆☆'.slice(0, 5 - stars);
-  MailApp.sendEmail({
+  sendMail_({
     to: CONFIG.BUSINESS_EMAIL,
     replyTo: b.email,
     name: 'MUVE Reviews',
@@ -561,7 +561,7 @@ function submitReview(id, token, stars, comment) {
 // ================= emails =================
 
 function sendCustomerReceived_(b) {
-  MailApp.sendEmail({
+  sendMail_({
     to: b.email,
     replyTo: CONFIG.BUSINESS_EMAIL,
     name: CONFIG.BUSINESS_NAME,
@@ -579,7 +579,7 @@ function sendCustomerReceived_(b) {
 
 function sendOwnerRequest_(b) {
   const link = ScriptApp.getService().getUrl() + '?id=' + encodeURIComponent(b.confNumber) + '&t=' + token_(b.confNumber);
-  MailApp.sendEmail({
+  sendMail_({
     to: CONFIG.BUSINESS_EMAIL,
     replyTo: b.email,
     name: 'MUVE Website',
@@ -594,7 +594,7 @@ function sendOwnerRequest_(b) {
 }
 
 function sendCustomerConfirmed_(b) {
-  MailApp.sendEmail({
+  sendMail_({
     to: b.email,
     replyTo: CONFIG.BUSINESS_EMAIL,
     name: CONFIG.BUSINESS_NAME,
@@ -611,7 +611,7 @@ function sendCustomerConfirmed_(b) {
 }
 
 function sendCustomerDeclined_(b) {
-  MailApp.sendEmail({
+  sendMail_({
     to: b.email,
     replyTo: CONFIG.BUSINESS_EMAIL,
     name: CONFIG.BUSINESS_NAME,
@@ -622,6 +622,14 @@ function sendCustomerDeclined_(b) {
       <p>We'll reach out at ${esc_(b.phone)} to find another time that works — or reply to this email or call ${CONFIG.BUSINESS_PHONE}.</p>`),
     body: `Hi ${firstName_(b.name)},\n\nUnfortunately we can't take the ${WINDOW_LABELS[b.window]} slot on ${prettyDate_(b.date)} for request ${b.confNumber}. We'll reach out at ${b.phone} to find another time, or call ${CONFIG.BUSINESS_PHONE}.`
   });
+}
+
+/**
+ * Sends through the Gmail mailbox (like an email you write yourself) instead of
+ * MailApp's shared Apps Script relay, whose messages Gmail was rejecting.
+ */
+function sendMail_(m) {
+  GmailApp.sendEmail(m.to, m.subject, m.body, { htmlBody: m.htmlBody, name: m.name, replyTo: m.replyTo });
 }
 
 function emailShell_(inner) {
@@ -842,4 +850,16 @@ function sendTestBooking() {
   sendCustomerReceived_(b);
   sendOwnerRequest_(b);
   Logger.log('Test emails sent to ' + CONFIG.BUSINESS_EMAIL);
+}
+
+/** Optional: sends the customer "request received" email to an outside address (put yours below). */
+function sendTestToOutsideEmail() {
+  const to = 'your.address@gmail.com';
+  sendCustomerReceived_(cleanBooking_({
+    confNumber: 'MUVE-000000', name: 'Test Customer', phone: CONFIG.BUSINESS_PHONE,
+    email: to, zip: '92101', address: '123 Test St, San Diego', service: 'moving',
+    date: Utilities.formatDate(new Date(Date.now() + 7 * 864e5), CONFIG.TIMEZONE, 'yyyy-MM-dd'),
+    window: 'morning', notes: 'This is a test email.'
+  }));
+  Logger.log('Test email sent to ' + to);
 }
