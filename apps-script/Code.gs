@@ -29,7 +29,7 @@
 const CONFIG = {
   BUSINESS_EMAIL: 'fam@muvepro.com',
   BUSINESS_NAME: 'MUVE',
-  BUSINESS_PHONE: '(844) 867-0674',
+  BUSINESS_PHONE: '(619) 713-8841',
   FOLDER_NAME: 'MUVE Bookings',
   TIMEZONE: 'America/Los_Angeles',
   PENDING_DAYS: 60, // unanswered requests are cleared after this many days

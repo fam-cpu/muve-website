@@ -287,8 +287,8 @@
       }
       const code = result.reason + (result.status ? "-" + result.status : "") + (result.message ? ": " + result.message : "");
       showError("booking-error", (result.reason === "network"
-        ? "We couldn't send your request — please check your connection and try again, or call (844) 867-0674."
-        : "We couldn't process your request. Please check your details or call (844) 867-0674.") + " (Error code: " + code + ")");
+        ? "We couldn't send your request — please check your connection and try again, or call (619) 713-8841."
+        : "We couldn't process your request. Please check your details or call (619) 713-8841.") + " (Error code: " + code + ")");
       return;
     }
     const confNumber = result.confNumber;
@@ -478,7 +478,7 @@
       if (score > bestScore) { bestScore = score; best = f; }
     });
     setTimeout(() => {
-      addChatMsg("bot", best ? best.a : "I'm not sure on that one — call (844) 867-0674 or email fam@muvepro.com and we'll get you a straight answer.");
+      addChatMsg("bot", best ? best.a : "I'm not sure on that one — call (619) 713-8841 or email fam@muvepro.com and we'll get you a straight answer.");
     }, 300);
   }
 
