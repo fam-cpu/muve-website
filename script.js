@@ -40,12 +40,11 @@
   };
   // Gallery photos: put images in assets/gallery/ and list them here (newest first).
   const GALLERY = [
-    { src: "assets/gallery/job-1.svg", caption: "Apartment move" },
-    { src: "assets/gallery/job-2.svg", caption: "Couch delivery" },
-    { src: "assets/gallery/job-3.svg", caption: "Garage clean-out" },
-    { src: "assets/gallery/job-4.svg", caption: "Home move" },
-    { src: "assets/gallery/job-5.svg", caption: "Junk haul-away" },
-    { src: "assets/gallery/job-6.svg", caption: "Office move" }
+    { src: "assets/gallery/kitchen-junk-removal.jpg", caption: "Junk removal: before & after" },
+    { src: "assets/gallery/piano-cabinet-swap.jpg", caption: "Piano & cabinet swap" },
+    { src: "assets/gallery/garage-clean-out.jpg", caption: "Garage clean-out" },
+    { src: "assets/gallery/junk-haul-away.jpg", caption: "Junk haul-away" },
+    { src: "assets/gallery/furniture-delivery.jpg", caption: "Furniture delivery" }
   ];
   const ZONE_MULTIPLIERS = { "921": 1.0, "919": 1.0, "920": 1.0 };
   const DEFAULT_ZONE_MULTIPLIER = 1.2;
